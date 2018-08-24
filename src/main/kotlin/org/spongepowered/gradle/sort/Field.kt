@@ -63,14 +63,14 @@ open class Field(
     {
         var commentBlock = ""
         for (commentLine in comment) {
-            commentBlock = StringBuffer(commentBlock).append(commentLine).append(TextConstants.newLine).toString()
+            commentBlock += commentLine + TextConstants.newLine
         }
         return commentBlock
     }
 
     override fun toString() : String
     {
-        return StringBuffer(this.flush()).append(modifiers).append(type).append(name).append(initializer).toString()
+        return this.flush() + modifiers + type + name+ initializer
     }
 
 

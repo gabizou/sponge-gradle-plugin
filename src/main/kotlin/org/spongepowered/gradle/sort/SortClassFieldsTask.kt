@@ -2,6 +2,7 @@ package org.spongepowered.gradle.sort
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.InvalidUserDataException
+import org.gradle.api.logging.LogLevel
 import org.gradle.api.plugins.JavaPluginConvention
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
@@ -10,6 +11,7 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.internal.impldep.com.google.common.io.Files
 import org.spongepowered.gradle.util.TextConstants
 import java.io.File
+import java.io.FileWriter
 import java.nio.charset.Charset
 import java.util.*
 import javax.inject.Inject
@@ -32,7 +34,7 @@ open class SortClassFieldsTask @Inject constructor() : DefaultTask() {
 
 
     fun add(file : File) {
-        this.targetFiles + file
+        this.targetFiles.add(file)
     }
 
     /**
@@ -79,11 +81,11 @@ open class SortClassFieldsTask @Inject constructor() : DefaultTask() {
 
         sourceSet.allJava.srcDirs.forEach {
             srcDir ->
-            val sourceFile = File(resourceFileName)
-            sourceFile.resolve(srcDir)
+            logger.log(LogLevel.INFO, "Attempting to locate: %s", resourceFileName)
+            val sourceFile = srcDir.resolve(resourceFileName)
             if (sourceFile.exists()) {
                 foundResource = true
-                targetFiles + sourceFile
+                add(sourceFile)
             }
         }
 
@@ -125,51 +127,51 @@ open class SortClassFieldsTask @Inject constructor() : DefaultTask() {
 
         // Current field being accumulated
         var current = Field()
-        Files.readLines(file, Charset.defaultCharset()).forEach { line ->
+        file.readLines(Charset.defaultCharset()).forEach { line ->
             if (!current.initializer.isEmpty()) {
                 if (current.initializer.contains(";")) {
                     if (!current.type.isEmpty()) {
-                        fields + current
+                        fields.add(current)
                     } else {
-                        output = StringBuffer(output).append(current.flush()).toString()
+                        output += current.flush()
                     }
                     current = Field()
                 } else {
-                    current.initializer = StringBuffer(current.initializer).append(TextConstants.newLine).append(line).toString()
+                    current.initializer += TextConstants.newLine + line
                 }
             }
-            val semaphore = TextConstants.semaphores.matchEntire(line)
+            val semaphore = TextConstants.semaphores.find(line)
             when (semaphore) {
                 is MatchResult ->  {
                     if ("OFF" == semaphore.groups[1]!!.value) {
                         fields.forEach { field ->
-                            output = StringBuffer(output).append(TextConstants.newLine).append(field).append(TextConstants.newLine).toString()
+                            output += TextConstants.newLine + field + TextConstants.newLine
                         }
                         if (fields.isNotEmpty()) {
-                            output = StringBuffer(output).append(TextConstants.newLine).toString()
+                            output += TextConstants.newLine
                         }
                         fields.clear()
                     }
                     active = "ON" == semaphore.groups[1]!!.value
-                    output = StringBuffer(output).append(TextConstants.newLine).append(line).append(TextConstants.newLine).toString()
+                    output += line + TextConstants.newLine
                     return@forEach
                 }
             }
             if (!active) {
-                output = StringBuffer(output).append(TextConstants.newLine).append(line).append(TextConstants.newLine).toString()
+                output += line + TextConstants.newLine
                 return@forEach
-            } else if (line.isNotEmpty()) {
+            } else if (line.isEmpty()) {
                 return@forEach
             }
 
-            val matched = TextConstants.modifiers.matchEntire(line)
+            val matched = TextConstants.modifiers.find(line)
             when (matched) {
                 is MatchResult -> { // found a field declaration
                     current.modifiers = matched.groups[0]!!.value
                     val assignedPos = line.indexOf("=")
                     val typeAndName = line.substring(current.modifiers.length, assignedPos)
                     current.initializer = line.substring(assignedPos)
-                    val idMatch = TextConstants.identifier.matchEntire(typeAndName)
+                    val idMatch = TextConstants.identifier.find(typeAndName)
                     when (idMatch) {
                         is MatchResult -> {
                             current.type = idMatch.groups[1]!!.value
@@ -187,10 +189,14 @@ open class SortClassFieldsTask @Inject constructor() : DefaultTask() {
         }
         // Flush any remaining accumulated content
         if (current.isHasContent()) {
-            output = StringBuffer(output).append(current.flush()).toString()
+            output += current.flush()
         }
-
-        Files.write(output, file, Charset.defaultCharset())
+        val newPath = file.toPath()
+        file.delete()
+        val newFile = newPath.toFile()
+        val writer = FileWriter(newFile)
+        writer.write(output)
+        writer.close()
     }
 }
 
