@@ -41,7 +41,8 @@ open class SpongeGradlePlugin : Plugin<Project> {
         val groups = project.container(SortGroup::class.java)
         project.extensions.create("sortFields", SortFieldsExtension::class.java, groups)
         project.extensions.add("sortGroups", groups)
-        project.tasks.create("sortClassFields", SortClassFieldsTask::class.java)
+        val task = project.tasks.create("sortClassFields", SortClassFieldsTask::class.java)
+        task.group = "sponge"
     }
 }
 
