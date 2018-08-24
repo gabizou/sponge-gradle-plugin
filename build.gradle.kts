@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 buildscript {
 
@@ -8,6 +9,8 @@ plugins {
     id("org.jetbrains.kotlin.jvm") version "1.2.61"
     `maven-publish`
     id("com.gradle.plugin-publish") version "0.10.0"
+    id("com.github.hierynomus.license") version "0.14.0"
+
 }
 
 group = "org.spongepowered"
@@ -31,15 +34,11 @@ repositories {
     mavenCentral()
     maven("https://repo.spongepowered.org/maven")
 }
-tasks.getByName<KotlinCompile>("compileKotlin") {
-    kotlinOptions.jvmTarget = "1.8"
 
-}
+tasks.getByName<KotlinCompile>("compileKotlin").kotlinOptions.jvmTarget = "1.8"
 
-tasks.getByName<KotlinCompile>("compileTestKotlin") {
-    kotlinOptions.jvmTarget = "1.8"
+tasks.getByName<KotlinCompile>("compileTestKotlin").kotlinOptions.jvmTarget = "1.8"
 
-}
 dependencies {
     compileOnly(gradleApi())
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")

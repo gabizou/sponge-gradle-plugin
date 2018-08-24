@@ -1,15 +1,12 @@
 package org.spongepowered.gradle
 
-import org.gradle.api.JavaVersion
-import org.gradle.api.Plugin
-import org.gradle.api.Project
+import org.gradle.api.*
 import org.gradle.api.plugins.JavaPluginConvention
 import org.gradle.plugins.ide.idea.IdeaPlugin
 import org.spongepowered.gradle.plugin.SpongePluginExtension
 import org.spongepowered.gradle.sort.SortClassFieldsTask
-import org.spongepowered.gradle.sort.SortClassGroup
 import org.spongepowered.gradle.sort.SortFieldsExtension
-import java.io.File
+import org.spongepowered.gradle.sort.SortGroup
 
 open class SpongeGradlePlugin : Plugin<Project> {
 
@@ -41,18 +38,10 @@ open class SpongeGradlePlugin : Plugin<Project> {
 //                apply(SpongeBasePlugin::class.java)
             }
         }
-        var container = project.container(SortClassGroup::class.java)
-        val sortFields = project.extensions.create("sortFields", SortFieldsExtension::class.java, container)
-        project.tasks.create("sortClassFields", SortClassFieldsTask::class.java) {
-            sortFields.name
-//            container.
-//            sortFields.groups.forEach { group ->
-//                group.pqClasses.forEach { pqClass ->
-//                    it.add(group.fqpackage.replace(".", File.separator) + File.separator + pqClass.replace(".", File.separator))
-//                }
-//            }
-
-        }
-
+        val groups = project.container(SortGroup::class.java)
+        project.extensions.create("sortFields", SortFieldsExtension::class.java, groups)
+        project.extensions.add("sortGroups", groups)
+        project.tasks.create("sortClassFields", SortClassFieldsTask::class.java)
     }
 }
+

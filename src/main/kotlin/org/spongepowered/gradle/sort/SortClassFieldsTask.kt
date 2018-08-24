@@ -3,6 +3,7 @@ package org.spongepowered.gradle.sort
 import org.gradle.api.DefaultTask
 import org.gradle.api.InvalidUserDataException
 import org.gradle.api.plugins.JavaPluginConvention
+import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskAction
@@ -15,9 +16,24 @@ import javax.inject.Inject
 
 open class SortClassFieldsTask @Inject constructor() : DefaultTask() {
 
-    @Internal
-    var files : List<File> = listOf()
+    @Input
+    fun getFiles() : List<File> {
+        val groups = project.extensions.getByType(SortFieldsExtension::class.java).group.toList()
+        groups.forEach { group ->
+            group.files.forEach { pqClass ->
+                add(group.name.replace(".", File.separator) + File.separator + pqClass.replace(".", File.separator))
+            }
+        }
+        return targetFiles
+    }
 
+    @Internal
+    val targetFiles : MutableList<File> = mutableListOf()
+
+
+    fun add(file : File) {
+        this.targetFiles + file
+    }
 
     /**
      * Add a resource for processing, the resource name should be a
@@ -37,7 +53,7 @@ open class SortClassFieldsTask @Inject constructor() : DefaultTask() {
      * @param resourceName Resource to add
      */
     fun add(sourceSetName : String, resourceName : String) {
-        val java = project.convention as JavaPluginConvention
+        val java = project.convention.getPlugin(JavaPluginConvention::class.java)
         val sourceSet : SourceSet? = java.sourceSets.findByName(sourceSetName)
         when (sourceSet) {
             is SourceSet -> this.add(sourceSet, resourceName)
@@ -55,7 +71,7 @@ open class SortClassFieldsTask @Inject constructor() : DefaultTask() {
     fun add(sourceSet : SourceSet, resourceName : String) {
 
         if (resourceName.isEmpty()) {
-            throw InvalidUserDataException("${resourceName} is not a valid resource name")
+            throw InvalidUserDataException("$resourceName is not a valid resource name")
         }
 
         var foundResource = false
@@ -63,15 +79,16 @@ open class SortClassFieldsTask @Inject constructor() : DefaultTask() {
 
         sourceSet.allJava.srcDirs.forEach {
             srcDir ->
-            val sourceFile = File(srcDir, resourceFileName)
+            val sourceFile = File(resourceFileName)
+            sourceFile.resolve(srcDir)
             if (sourceFile.exists()) {
                 foundResource = true
-                files + sourceFile
+                targetFiles + sourceFile
             }
         }
 
         if (!foundResource) {
-            throw InvalidUserDataException("${resourceName} could not be found")
+            throw InvalidUserDataException("$resourceName could not be found")
         }
     }
 
@@ -80,7 +97,7 @@ open class SortClassFieldsTask @Inject constructor() : DefaultTask() {
      */
     @TaskAction
     fun sortFiles() {
-        for (file in files) {
+        for (file in targetFiles) {
             this.sortFile(file)
         }
     }
@@ -104,7 +121,7 @@ open class SortClassFieldsTask @Inject constructor() : DefaultTask() {
         var output = ""
 
         // Sorted field set
-        var fields = TreeSet<Field>()
+        val fields = TreeSet<Field>()
 
         // Current field being accumulated
         var current = Field()
