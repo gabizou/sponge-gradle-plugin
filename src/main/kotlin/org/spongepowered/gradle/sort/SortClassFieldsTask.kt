@@ -8,7 +8,6 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskAction
-import org.gradle.internal.impldep.com.google.common.io.Files
 import org.spongepowered.gradle.util.TextConstants
 import java.io.File
 import java.io.FileWriter
@@ -23,7 +22,7 @@ open class SortClassFieldsTask @Inject constructor() : DefaultTask() {
         val groups = project.extensions.getByType(SortFieldsExtension::class.java).group.toList()
         groups.forEach { group ->
             group.files.forEach { pqClass ->
-                add(group.name.replace(".", File.separator) + File.separator + pqClass.replace(".", File.separator))
+                add("main", group.name.replace(".", File.separator) + File.separator + pqClass.replace(".", File.separator))
             }
         }
         return targetFiles
@@ -33,18 +32,14 @@ open class SortClassFieldsTask @Inject constructor() : DefaultTask() {
     val targetFiles : MutableList<File> = mutableListOf()
 
 
-    fun add(file : File) {
-        this.targetFiles.add(file)
-    }
-
     /**
-     * Add a resource for processing, the resource name should be a
-     * fully-qualified class name.
-     *
-     * @param resourceName Resource to add
+     * Main task action, sort added files
      */
-    fun add(resourceName: String) {
-        this.add("main", resourceName)
+    @TaskAction
+    fun sortFiles() {
+        for (file in targetFiles) {
+            this.sortFile(file)
+        }
     }
 
     /**
@@ -58,49 +53,26 @@ open class SortClassFieldsTask @Inject constructor() : DefaultTask() {
         val java = project.convention.getPlugin(JavaPluginConvention::class.java)
         val sourceSet : SourceSet? = java.sourceSets.findByName(sourceSetName)
         when (sourceSet) {
-            is SourceSet -> this.add(sourceSet, resourceName)
-            else -> throw InvalidUserDataException("Could not find specified sourceSet '${sourceSetName} for task")
-        }
-    }
-
-    /**
-     * Add a resource for processing, the resource name should be a
-     * fully-qualified class name.
-     *
-     * @param sourceSet Sourceset to use
-     * @param resourceName Resource to add
-     */
-    fun add(sourceSet : SourceSet, resourceName : String) {
-
-        if (resourceName.isEmpty()) {
-            throw InvalidUserDataException("$resourceName is not a valid resource name")
-        }
-
-        var foundResource = false
-        val resourceFileName = String.format("%s.java", resourceName.replace(".", File.separator))
-
-        sourceSet.allJava.srcDirs.forEach {
-            srcDir ->
-            logger.log(LogLevel.INFO, "Attempting to locate: %s", resourceFileName)
-            val sourceFile = srcDir.resolve(resourceFileName)
-            if (sourceFile.exists()) {
-                foundResource = true
-                add(sourceFile)
+            is SourceSet -> {
+                if (resourceName.isEmpty()) {
+                        throw InvalidUserDataException("$resourceName is not a valid resource name")
+                    }
+                var foundResource = false
+                val resourceFileName = String.format("%s.java", resourceName.replace(".", File.separator))
+                sourceSet.allJava.srcDirs.forEach {
+                        srcDir ->
+                        this.logger.log(LogLevel.INFO, "Attempting to locate: %s", resourceFileName)
+                        val sourceFile = srcDir.resolve(resourceFileName)
+                        if (sourceFile.exists()) {
+                            foundResource = true
+                            this.targetFiles.add(sourceFile)
+                        }
+                    }
+                if (!foundResource) {
+                        throw InvalidUserDataException("$resourceName could not be found")
+                    }
             }
-        }
-
-        if (!foundResource) {
-            throw InvalidUserDataException("$resourceName could not be found")
-        }
-    }
-
-    /**
-     * Main task action, sort added files
-     */
-    @TaskAction
-    fun sortFiles() {
-        for (file in targetFiles) {
-            this.sortFile(file)
+            else -> throw InvalidUserDataException("Could not find specified sourceSet '$sourceSetName for task")
         }
     }
 
